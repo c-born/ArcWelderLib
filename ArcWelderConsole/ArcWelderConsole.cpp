@@ -33,6 +33,8 @@
 #include "gcode_position.h"
 #include <tclap/CmdLine.h>
 
+using std::string;
+
 int main(int argc, char* argv[])
 {
   std::string source_file_path;
@@ -152,15 +154,7 @@ int main(int argc, char* argv[])
   if (source_file_path == target_file_path)
   {
     overwrite_source_file = true;
-    if (!utilities::get_temp_file_path_for_file(source_file_path, target_file_path));
-    {
-      log_messages << "The source and target path are the same, but a temporary file path could not be created.  Is the path empty?";
-      p_logger->log(0, INFO, log_messages.str());
-      log_messages.clear();
-      log_messages.str("");
-    }
-
-    // create a uuid with a tmp extension for the temporary file
+    target_file_path = source_file_path + "_tmp";
 
     log_messages << "Source and target path are the same.  The source file will be overwritten.  Temporary file path: " << target_file_path;
     p_logger->log(0, INFO, log_messages.str());
@@ -192,13 +186,11 @@ int main(int argc, char* argv[])
 
     if (overwrite_source_file)
     {
+      string orig_file_path = source_file_path + "_orig";
+      std::remove(orig_file_path.c_str());                              // In case exists
+      std::rename(source_file_path.c_str(), orig_file_path.c_str());    // Keep original source for comparison (make flag-selectable?)
       log_messages.clear();
       log_messages.str("");
-      log_messages << "Deleting the source file at '" << source_file_path << "'.";
-      p_logger->log(0, INFO, log_messages.str());
-      log_messages.clear();
-      log_messages.str("");
-      std::remove(source_file_path.c_str());
       log_messages << "Renaming temporary file at '" << target_file_path << "' to '" << source_file_path <<"'.";
       p_logger->log(0, INFO, log_messages.str());
       std::rename(target_file_path.c_str(), source_file_path.c_str());
