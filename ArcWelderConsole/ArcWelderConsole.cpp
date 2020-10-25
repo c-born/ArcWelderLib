@@ -33,8 +33,6 @@
 #include "gcode_position.h"
 #include <tclap/CmdLine.h>
 
-using std::string;
-
 int main(int argc, char* argv[])
 {
   std::string source_file_path;
@@ -62,7 +60,7 @@ int main(int argc, char* argv[])
     TCLAP::UnlabeledValueArg<std::string> source_arg("source", "The source gcode file to convert.", true, "", "path to source gcode file");
 
     // <TARGET>
-    TCLAP::UnlabeledValueArg<std::string> target_arg("target", "The target gcode file containing the converted code.", true, "", "path to target gcode file");
+    TCLAP::UnlabeledValueArg<std::string> target_arg("target", "The target gcode file containing the converted code.  If this is not supplied, the source path will be used and the source file will be overwritten.", false, "", "path to target gcode file");
 
     // -r --resolution-mm
     arg_description_stream << "The resolution in mm of the of the output.  Determines the maximum tool path deviation allowed during conversion. Default Value: " << DEFAULT_RESOLUTION_MM;
@@ -111,6 +109,12 @@ int main(int argc, char* argv[])
     // Get the value parsed by each arg. 
     source_file_path = source_arg.getValue();
     target_file_path = target_arg.getValue();
+
+    if (target_file_path.size() == 0)
+    {
+      target_file_path = source_file_path;
+    }
+
     resolution_mm = resolution_arg.getValue();
     max_radius_mm = max_radius_arg.getValue();
     g90_g91_influences_extruder = g90_arg.getValue();
@@ -154,7 +158,15 @@ int main(int argc, char* argv[])
   if (source_file_path == target_file_path)
   {
     overwrite_source_file = true;
-    target_file_path = source_file_path + "_tmp";
+    if (!utilities::get_temp_file_path_for_file(source_file_path, target_file_path))
+    {
+      log_messages << "The source and target path are the same, but a temporary file path could not be created.  Is the path empty?";
+      p_logger->log(0, INFO, log_messages.str());
+      log_messages.clear();
+      log_messages.str("");
+    }
+
+    // create a uuid with a tmp extension for the temporary file
 
     log_messages << "Source and target path are the same.  The source file will be overwritten.  Temporary file path: " << target_file_path;
     p_logger->log(0, INFO, log_messages.str());
@@ -186,11 +198,13 @@ int main(int argc, char* argv[])
 
     if (overwrite_source_file)
     {
-      string orig_file_path = source_file_path + "_orig";
-      std::remove(orig_file_path.c_str());                              // In case exists
-      std::rename(source_file_path.c_str(), orig_file_path.c_str());    // Keep original source for comparison (make flag-selectable?)
       log_messages.clear();
       log_messages.str("");
+      log_messages << "Deleting the source file at '" << source_file_path << "'.";
+      p_logger->log(0, INFO, log_messages.str());
+      log_messages.clear();
+      log_messages.str("");
+      std::remove(source_file_path.c_str());
       log_messages << "Renaming temporary file at '" << target_file_path << "' to '" << source_file_path <<"'.";
       p_logger->log(0, INFO, log_messages.str());
       std::rename(target_file_path.c_str(), source_file_path.c_str());
